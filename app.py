@@ -59,3 +59,13 @@ class Scraper():
 
         jobs_db = self.extract_job_data(html)
         self.convert_to_excel(keyword, jobs_db)
+
+    
+    def search_jobs_by_keywords(self, keywords):
+        for keyword in keywords:
+            self.scrape_page(keyword)
+
+
+keywords = ['flutter', 'kotlin', 'nextjs']
+job_scraper = Scraper()
+job_scraper.search_jobs_by_keywords(keywords)
