@@ -4,48 +4,58 @@ from bs4 import BeautifulSoup
 import csv
 
 
-p = sync_playwright().start()  # initialize playwright
-browser = p.chromium.launch(headless=False)  # initialize browser
-page = browser.new_page()  # create a new tab
+class Scraper():
+
+    def __init__(self):
+        self.base_url = 'https://www.wanted.co.kr/'
 
 
-page.goto('https://www.wanted.co.kr/search?query=%ED%94%84%EB%A1%A0%ED%8A%B8&tab=position')
+    def extract_job_data(self, html):
+        soup = BeautifulSoup(html, 'html.parser')
 
-time.sleep(3)
+        jobs = soup.find_all('div', class_='JobCard_container__REty8')
+        jobs_db = []
 
-for i in range(4):
-    page.keyboard.down('End')
-    time.sleep(3)
+        for job in jobs:
+            link = f"{self.base_url}{job.find('a')['href']}"
+            title = job.find('strong', class_='JobCard_title__HBpZf').text
+            company_name = job.find('span', class_='JobCard_companyName__N1YrF').text
+            reward = job.find('span', class_='JobCard_reward__cNlG5').text
+            data = {
+                'title': title,
+                'company_name': company_name,
+                'link': link,
+                'reward': reward,
+            }
+            jobs_db.append(data)
 
-html = page.content()
-
-p.stop()
-
-soup = BeautifulSoup(html, 'html.parser')
-
-jobs = soup.find_all('div', class_='JobCard_container__REty8')
-jobs_db = []
-base_url = 'https://www.wanted.co.kr/'
-
-for job in jobs:
-    link = f"{base_url}{job.find('a')['href']}"
-    title = job.find('strong', class_='JobCard_title__HBpZf').text
-    company_name = job.find('span', class_='JobCard_companyName__N1YrF').text
-    reward = job.find('span', class_='JobCard_reward__cNlG5').text
-    data = {
-        'title': title,
-        'company_name': company_name,
-        'link': link,
-        'reward': reward,
-    }
-    jobs_db.append(data)
+        return jobs_db
 
 
-file = open('jobs.csv', 'w')
-writer = csv.writer(file)
-writer.writerow(['Title', 'Company', 'Link', 'Reward'])
+    def convert_to_excel(self, name, data):
+        file = open(f'{name}.csv', 'w')
+        writer = csv.writer(file)
+        writer.writerow(['Title', 'Company', 'Link', 'Reward'])
 
-for job in jobs_db:
-    writer.writerow(job.values())
+        for job in data:
+            writer.writerow(job.values())
 
-file.close()
+        file.close()
+
+
+    def scrape_page(self, keyword):
+        p = sync_playwright().start()  # initialize playwright
+        browser = p.chromium.launch(headless=False)  # initialize browser
+        page = browser.new_page()  # create a new tab
+        page.goto(f'{self.base_url}search?query={keyword}&tab=position')
+        time.sleep(3)
+
+        for _ in range(4):
+            page.keyboard.down('End')
+            time.sleep(3)
+
+        html = page.content()
+        p.stop()
+
+        jobs_db = self.extract_job_data(html)
+        self.convert_to_excel(keyword, jobs_db)
